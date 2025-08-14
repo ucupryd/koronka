@@ -1,6 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/configuration_page.dart';
 import 'pages/things_page.dart';
@@ -8,14 +9,11 @@ import 'pages/maintenance_page.dart';
 import 'pages/login_page.dart';
 import 'services/auth_service.dart';
 
-// --- PERUBAHAN WARNA DI SINI ---
+// ... (Class AppColors Anda tetap sama)
 class AppColors {
-  // Warna utama diambil dari logo Anda
-  static const Color primary = Color(0xFF0A546D); 
-  // Versi yang sedikit lebih terang untuk gradient dan aksen
-  static const Color primaryLight = Color(0xFF1B7F9E); 
-
-  static const Color secondary = Color(0xFF00BCD4); // Cyan accent (bisa dipertahankan atau diubah)
+  static const Color primary = Color(0xFF0A546D);
+  static const Color primaryLight = Color(0xFF1B7F9E);
+  static const Color secondary = Color(0xFF00BCD4);
   static const Color background = Color(0xFFF8FAFF);
   static const Color cardBackground = Colors.white;
   static const Color textDark = Color(0xFF1A1A1A);
@@ -64,7 +62,7 @@ class CoolingApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Inter',
         colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primary, // Tema akan menggunakan warna primary baru
+          seedColor: AppColors.primary,
           brightness: Brightness.light,
           surface: AppColors.surface,
           background: AppColors.background,
@@ -93,7 +91,7 @@ class CoolingApp extends StatelessWidget {
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary, // Tombol juga akan menggunakan warna baru
+            backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
             elevation: 0,
             shadowColor: Colors.transparent,
@@ -114,22 +112,20 @@ class CoolingApp extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.primary, width: 2), // Border fokus juga
+            borderSide: const BorderSide(color: AppColors.primary, width: 2),
           ),
           filled: true,
           fillColor: Colors.grey.shade50,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
       ),
-      home: const AuthGate(),
+      // PERUBAHAN: Aplikasi sekarang selalu dimulai dari LoginPage
+      home: const LoginPage(),
     );
   }
 }
 
-// ... (Sisa kode main.dart Anda tetap sama)
-// Class AuthGate, MainPage, dll. tidak perlu diubah.
-
-/// Widget ini berfungsi sebagai "gerbang" otentikasi.
+// Widget AuthGate tetap ada untuk digunakan di masa depan, tapi tidak dipanggil saat start-up
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -166,6 +162,7 @@ class _AuthGateState extends State<AuthGate> {
   }
 }
 
+
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
 
@@ -173,11 +170,11 @@ class MainPage extends StatefulWidget {
   State<MainPage> createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
+class _MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
-  late AnimationController _animationController;
-  // Kunci untuk mengontrol Scaffold (terutama untuk membuka drawer)
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final AuthService _authService = AuthService();
+  late PageController _pageController;
 
   static const List<Widget> _pages = <Widget>[
     DashboardPage(),
@@ -189,15 +186,12 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
+    _pageController = PageController();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -205,16 +199,18 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     setState(() {
       _selectedIndex = index;
     });
-    _animationController.forward().then((_) {
-      _animationController.reverse();
-    });
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
   
   Future<void> _performLogout() async {
-    await AuthService().logout();
+    await _authService.logout();
     if (mounted) {
-      // Tutup drawer terlebih dahulu sebelum navigasi
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(); // Tutup drawer
+      // Kembali ke LoginPage
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const LoginPage()),
       );
@@ -224,7 +220,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Tambahkan kunci ke Scaffold
       key: _scaffoldKey,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(80),
@@ -243,7 +238,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
             backgroundColor: Colors.transparent,
             elevation: 0,
             toolbarHeight: 80,
-            // PERUBAHAN: Menghapus judul halaman dari sini
             title: Row(
               children: [
                 Container(
@@ -272,12 +266,10 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
               ],
             ),
             actions: [
-              // PERUBAHAN: Mengganti tombol logout dengan tombol profil
               IconButton(
                 icon: const Icon(Icons.person_outline_rounded, color: Colors.white, size: 28),
                 tooltip: 'Profil Akun',
                 onPressed: () {
-                  // Membuka endDrawer saat tombol ditekan
                   _scaffoldKey.currentState?.openEndDrawer();
                 },
               ),
@@ -286,18 +278,16 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
           ),
         ),
       ),
-      // PERUBAHAN: Menambahkan endDrawer untuk profil
       endDrawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: <Widget>[
-            // Header untuk drawer
             const UserAccountsDrawerHeader(
               accountName: Text(
-                "Admin", // Username sementara
+                "Admin",
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
-              accountEmail: Text("admin@koronka.id"), // Email sementara
+              accountEmail: Text("admin@koronka.id"),
               currentAccountPicture: CircleAvatar(
                 backgroundColor: AppColors.background,
                 child: Icon(
@@ -310,21 +300,18 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                 gradient: AppColors.primaryGradient,
               ),
             ),
-            // Opsi menu di drawer
             ListTile(
               leading: const Icon(Icons.info_outline),
               title: const Text('Info'),
               onTap: () {
-                // TODO: Implementasi navigasi ke halaman Info
-                Navigator.pop(context); // Tutup drawer
+                Navigator.pop(context);
               },
             ),
             ListTile(
               leading: const Icon(Icons.settings_outlined),
               title: const Text('Settings'),
               onTap: () {
-                // TODO: Implementasi navigasi ke halaman Settings
-                Navigator.pop(context); // Tutup drawer
+                Navigator.pop(context);
               },
             ),
             const Divider(),
@@ -336,25 +323,14 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
           ],
         ),
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        transitionBuilder: (child, animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.1, 0),
-                end: Offset.zero,
-              ).animate(animation),
-              child: child,
-            ),
-          );
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
         },
-        child: IndexedStack(
-          key: ValueKey(_selectedIndex),
-          index: _selectedIndex,
-          children: _pages,
-        ),
+        children: _pages,
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

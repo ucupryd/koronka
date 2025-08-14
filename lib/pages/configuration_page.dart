@@ -158,6 +158,25 @@ class _ConfigurationPageState extends State<ConfigurationPage> with SingleTicker
                  ConfigInputField(label: 'F09 - Defrost stop temp', initialValue: '8', unit: '°C', description: 'Temperature to end defrost cycle.'),
                 const SizedBox(height: 10),
                 ConfigInputField(label: 'F10 - Fan mode', initialValue: '1', unit: '', description: '0=Off during defrost, 1=On, 2=Delayed start.'),
+                const SizedBox(height: 10),
+                ConfigInputField(label: 'F11 - Drip time after defrost', initialValue: '5', unit: 'min', description: 'Wait time after defrost before restarting.'),
+                const SizedBox(height: 10),
+                ConfigInputField(label: 'F12 - Door open alarm time', initialValue: '60', unit: 'sec', description: 'Time before door open alarm triggers.'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // --- PERUBAHAN DI SINI ---
+          InfoCard(
+            title: 'Defrost Status Information',
+            // Mengubah Row menjadi Column
+            child: Column(
+              children: [
+                _buildStatusRow('Last Defrost', '2 hours ago'),
+                const Divider(height: 24),
+                _buildStatusRow('Next Scheduled', '4 hours'),
+                const Divider(height: 24),
+                _buildStatusRow('Defrost Cycles Today', '3'),
               ],
             ),
           ),
@@ -171,7 +190,21 @@ class _ConfigurationPageState extends State<ConfigurationPage> with SingleTicker
       children: [
         Text(label, style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textDark)),
+      ],
+    );
+  }
+
+  // Widget helper baru untuk tata letak vertikal
+  Widget _buildStatusRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: AppColors.textMedium, fontSize: 14)),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textDark),
+        ),
       ],
     );
   }

@@ -34,6 +34,7 @@ dependencies:
   # Paket lain harus sejajar dengan 'flutter'
   http: ^1.2.1
   flutter_secure_storage: ^9.1.1
+  intl: ^0.19.0
   flutter_launcher_icons: ^0.13.1
   fl_chart: ^0.68.0 # <-- TAMBAHKAN INI
 
