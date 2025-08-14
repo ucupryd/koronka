@@ -6,7 +6,6 @@ import 'package:fl_chart/fl_chart.dart'; // Import package grafik
 import '../main.dart';
 import '../widgets/info_card.dart';
 
-// PERUBAHAN: Kembali menjadi StatelessWidget karena tidak ada state yang dikelola
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
 
@@ -53,7 +52,6 @@ class DashboardPage extends StatelessWidget {
               // --- Kartu Riwayat Suhu dengan Grafik ---
               InfoCard(
                 title: 'Evaporator Temperature History (24h)',
-                // PERUBAHAN: Menghapus tombol switch (trailing)
                 child: SizedBox(
                   height: 180,
                   child: _buildTemperatureChart(), // Memanggil widget grafik
@@ -66,22 +64,18 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  // --- WIDGET GRAFIK YANG DIPERBARUI ---
+  // --- WIDGET GRAFIK ---
   Widget _buildTemperatureChart() {
     final Random random = Random();
-    // Data dummy untuk 24 jam terakhir (24 titik data)
     final List<FlSpot> dummyData = List.generate(24, (index) {
-      // Fluktuasi suhu antara -17.0 dan -20.0
       final double temp = -18.5 + (random.nextDouble() * 3) - 1.5;
       return FlSpot(index.toDouble(), double.parse(temp.toStringAsFixed(1)));
     });
 
     return LineChart(
       LineChartData(
-        // PERUBAHAN: Menambahkan konfigurasi untuk sentuhan (tooltip)
         lineTouchData: LineTouchData(
-          handleBuiltInTouches: true, // Mengaktifkan interaksi sentuhan default
-          // PERBAIKAN: Menghapus kata kunci 'new'
+          handleBuiltInTouches: true,
           touchTooltipData: FlTouchTooltipData(
             tooltipBgColor: Colors.white,
             tooltipBorder: const BorderSide(color: AppColors.primary, width: 1),
@@ -92,13 +86,11 @@ class DashboardPage extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 );
-                // Menampilkan suhu
                 final tempText = '${touchedSpot.y}°C';
-                // Menampilkan jam. +1 karena index dimulai dari 0
                 final hourText = '\nJam ke-${touchedSpot.x.toInt()}';
 
                 return LineTooltipItem(
-                  '', // Teks utama dikosongkan, kita gunakan children
+                  '',
                   const TextStyle(),
                   children: [
                     TextSpan(text: tempText, style: textStyle),
@@ -117,11 +109,8 @@ class DashboardPage extends StatelessWidget {
             },
           ),
         ),
-        // Menghilangkan border di sekitar grafik
         borderData: FlBorderData(show: false),
-        // Mengatur garis grid
         gridData: FlGridData(
-          // PERUBAHAN: Grid sekarang selalu ditampilkan
           show: true,
           drawVerticalLine: true,
           drawHorizontalLine: true,
@@ -140,7 +129,6 @@ class DashboardPage extends StatelessWidget {
             );
           },
         ),
-        // Mengatur judul sumbu X dan Y
         titlesData: FlTitlesData(
           show: true,
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -183,7 +171,6 @@ class DashboardPage extends StatelessWidget {
             ),
           ),
         ),
-        // Data utama untuk garis grafik
         lineBarsData: [
           LineChartBarData(
             spots: dummyData,
@@ -207,7 +194,6 @@ class DashboardPage extends StatelessWidget {
             ),
           ),
         ],
-        // Mengatur rentang nilai sumbu X dan Y
         minX: 0,
         maxX: 23,
         minY: -22,
