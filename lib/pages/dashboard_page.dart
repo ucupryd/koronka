@@ -1,57 +1,72 @@
 // lib/pages/dashboard_page.dart
+
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/device_providers.dart';
+
 import '../main.dart';
 import '../widgets/info_card.dart';
-import '../models/product_model.dart'; // Import model produk asli
-import '../services/auth_service.dart'; // Import service API
+import '../models/product_model.dart';
 
-class DashboardPage extends StatefulWidget {
+// Mengubah widget menjadi ConsumerWidget yang lebih sederhana dan efisien
+class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
   @override
-  State<DashboardPage> createState() => _DashboardPageState();
-}
-
-class _DashboardPageState extends State<DashboardPage> {
-  final AuthService _authService = AuthService();
-  late Future<List<Product>> _productsFuture;
-  Product? _selectedProduct;
-
-  @override
-  void initState() {
-    super.initState();
-    // Memuat daftar produk dari backend
-    _productsFuture = _authService.getProducts();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<Product>>(
-      future: _productsFuture,
-      builder: (context, snapshot) {
-        // Saat loading
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+  Widget build(BuildContext context, WidgetRef ref) {
+    // =======================================================================
+    // !!! PERBAIKAN UTAMA DI SINI !!!
+    // Menggunakan ref.listen untuk menangani side-effect (memperbarui state lain).
+    // Ini memastikan state pilihan hanya diperbarui SETELAH data produk berhasil dimuat.
+    // =======================================================================
+    ref.listen<AsyncValue<List<Product>>>(productsProvider, (previous, next) {
+      // Cek jika state baru memiliki data dan tidak error
+      if (next is AsyncData<List<Product>>) {
+        final products = next.value;
+        if (products.isNotEmpty) {
+          // Cek state pilihan saat ini
+          final currentSelection = ref.read(selectedDeviceProvider);
+          // Jika belum ada yang dipilih ATAU pilihan yang lama sudah tidak ada di daftar baru,
+          // maka atur pilihan ke item pertama.
+          if (currentSelection == null || !products.any((p) => p.id == currentSelection)) {
+            ref.read(selectedDeviceProvider.notifier).selectDevice(products.first.id);
+          }
         }
-        // Jika error
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-        // Jika tidak ada data atau data kosong
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+      }
+    });
+
+    // Ambil state dari provider untuk membangun UI
+    final productsAsyncValue = ref.watch(productsProvider);
+    final selectedDeviceId = ref.watch(selectedDeviceProvider);
+
+    // Gunakan .when untuk secara aman membangun UI berdasarkan state dari FutureProvider
+    return productsAsyncValue.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text('Gagal memuat data: $err'),
+        ),
+      ),
+      data: (products) {
+        // Bagian ini hanya akan berjalan jika data berhasil dimuat
+        if (products.isEmpty) {
           return const Center(child: Text('Tidak ada perangkat yang dapat ditampilkan.'));
         }
 
-        final products = snapshot.data!;
-        // Inisialisasi perangkat terpilih jika belum ada
-        _selectedProduct ??= products.first;
+        // Jika state pilihan belum sempat diupdate oleh ref.listen, tampilkan loading
+        // Ini adalah pengaman terakhir untuk mencegah error
+        if (selectedDeviceId == null || !products.any((p) => p.id == selectedDeviceId)) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-        // Mendapatkan data dummy dinamis berdasarkan produk yang dipilih
-        final dummyDetails = _getDummyDetailsForProduct(_selectedProduct!);
-
+        // Cari produk yang cocok dengan ID yang dipilih.
+        final Product selectedProduct = products.firstWhere((p) => p.id == selectedDeviceId);
+        
+        final dummyDetails = _getDummyDetailsForProduct(selectedProduct);
         final bool isMobile = MediaQuery.of(context).size.width < 600;
 
         return SingleChildScrollView(
@@ -59,7 +74,7 @@ class _DashboardPageState extends State<DashboardPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildDeviceSelector(products),
+              _buildDeviceSelector(context, ref, products, selectedDeviceId),
               const SizedBox(height: 16),
               InfoCard(
                 title: 'Temperature Sensors (NTC)',
@@ -95,9 +110,8 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // --- WIDGET-WIDGET BUILDER ---
-
-  Widget _buildDeviceSelector(List<Product> products) {
+  // Widget pemilih perangkat
+  Widget _buildDeviceSelector(BuildContext context, WidgetRef ref, List<Product> products, String selectedDeviceId) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
@@ -106,18 +120,18 @@ class _DashboardPageState extends State<DashboardPage> {
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<Product>(
-          value: _selectedProduct,
+        child: DropdownButton<String>(
+          value: selectedDeviceId,
           isExpanded: true,
           icon: const Icon(CupertinoIcons.chevron_down, color: AppColors.primary),
-          onChanged: (Product? newValue) {
-            setState(() {
-              _selectedProduct = newValue!;
-            });
+          onChanged: (String? newId) {
+            if (newId != null) {
+              ref.read(selectedDeviceProvider.notifier).selectDevice(newId);
+            }
           },
-          items: products.map<DropdownMenuItem<Product>>((Product product) {
-            return DropdownMenuItem<Product>(
-              value: product,
+          items: products.map<DropdownMenuItem<String>>((Product product) {
+            return DropdownMenuItem<String>(
+              value: product.id,
               child: Text(
                 product.name,
                 style: const TextStyle(fontWeight: FontWeight.w500, color: AppColors.textDark),
@@ -127,6 +141,38 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       ),
     );
+  }
+
+  // --- Sisa kode (semua widget builder dan data dummy) tetap sama persis ---
+  Map<String, dynamic> _getDummyDetailsForProduct(Product product) {
+    final Random random = Random(product.id.hashCode);
+    double baseTemp = -18.5;
+    if (product.status.toLowerCase() != 'online') {
+      baseTemp = 5.0;
+    } else if (product.name.toLowerCase().contains('backup')) {
+      baseTemp = -15.0;
+    }
+    return {
+      'evaporator_temp': '${(baseTemp + random.nextDouble()).toStringAsFixed(1)}°C',
+      'product_temp': '${(baseTemp - 1.5 + random.nextDouble()).toStringAsFixed(1)}°C',
+      'ambient_temp': '${(25 + random.nextDouble() * 5).toStringAsFixed(1)}°C',
+      'condenser_temp': '${(45 + random.nextDouble() * 10).toStringAsFixed(1)}°C',
+      'humidity': '${(65 + random.nextDouble() * 10).toStringAsFixed(1)}%',
+      'pressure': '${(1010 + random.nextDouble() * 5).toStringAsFixed(1)}hPa',
+      'current': '${(8.0 + random.nextDouble() * 2).toStringAsFixed(1)}A',
+      'voltage': '${(228 + random.nextDouble() * 4).toStringAsFixed(1)}V',
+      'door_switch': product.status.toLowerCase() == 'online' ? 'Closed' : 'Open',
+      'emergency_stop': 'Off',
+      'high_pressure': baseTemp > -16 ? 'Warning' : 'Normal',
+      'compressor': product.status.toLowerCase() == 'online' ? 'On' : 'Off',
+      'fan_1': product.status.toLowerCase() == 'online' ? 'On' : 'Off',
+      'defrost_heater': baseTemp > 0 ? 'On' : 'Off',
+      'alarm': baseTemp > -16 ? 'Active' : 'Inactive',
+      'chartData': List.generate(24, (index) {
+        final double temp = baseTemp + (random.nextDouble() * 2) - 1.0;
+        return FlSpot(index.toDouble(), double.parse(temp.toStringAsFixed(1)));
+      }),
+    };
   }
 
   Widget _buildTemperatureChart(List<FlSpot> chartData) {
@@ -178,7 +224,10 @@ class _DashboardPageState extends State<DashboardPage> {
             belowBarData: BarAreaData(
               show: true,
               gradient: LinearGradient(
-                colors: [AppColors.primaryLight.withOpacity(0.3), AppColors.primary.withOpacity(0.0)],
+                colors: [
+                  AppColors.primaryLight.withAlpha(77), // Opacity 0.3
+                  AppColors.primary.withAlpha(0),      // Opacity 0.0
+                ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -291,7 +340,7 @@ class _DashboardPageState extends State<DashboardPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
+                  color: statusColor.withAlpha(26), // Opacity 0.1
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(statusText, style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold)),
@@ -348,43 +397,5 @@ class _DashboardPageState extends State<DashboardPage> {
         ],
       ),
     );
-  }
-
-  // --- FUNGSI HELPER UNTUK DATA DUMMY DINAMIS ---
-  Map<String, dynamic> _getDummyDetailsForProduct(Product product) {
-    final Random random = Random(product.id.hashCode); // Seed acak berdasarkan ID unik produk
-    double baseTemp = -18.5;
-    if (product.status.toLowerCase() != 'online') {
-      baseTemp = 5.0;
-    } else if (product.name.toLowerCase().contains('backup')) {
-      baseTemp = -15.0;
-    }
-
-    return {
-      // Temperature Sensors
-      'evaporator_temp': '${(baseTemp + random.nextDouble()).toStringAsFixed(1)}°C',
-      'product_temp': '${(baseTemp - 1.5 + random.nextDouble()).toStringAsFixed(1)}°C',
-      'ambient_temp': '${(25 + random.nextDouble() * 5).toStringAsFixed(1)}°C',
-      'condenser_temp': '${(45 + random.nextDouble() * 10).toStringAsFixed(1)}°C',
-      // Environmental
-      'humidity': '${(65 + random.nextDouble() * 10).toStringAsFixed(1)}%',
-      'pressure': '${(1010 + random.nextDouble() * 5).toStringAsFixed(1)}hPa',
-      // Electrical
-      'current': '${(8.0 + random.nextDouble() * 2).toStringAsFixed(1)}A',
-      'voltage': '${(228 + random.nextDouble() * 4).toStringAsFixed(1)}V',
-      // System Status
-      'door_switch': product.status.toLowerCase() == 'online' ? 'Closed' : 'Open',
-      'emergency_stop': 'Off',
-      'high_pressure': baseTemp > -16 ? 'Warning' : 'Normal',
-      'compressor': product.status.toLowerCase() == 'online' ? 'On' : 'Off',
-      'fan_1': product.status.toLowerCase() == 'online' ? 'On' : 'Off',
-      'defrost_heater': baseTemp > 0 ? 'On' : 'Off',
-      'alarm': baseTemp > -16 ? 'Active' : 'Inactive',
-      // Chart Data
-      'chartData': List.generate(24, (index) {
-        final double temp = baseTemp + (random.nextDouble() * 2) - 1.0;
-        return FlSpot(index.toDouble(), double.parse(temp.toStringAsFixed(1)));
-      }),
-    };
   }
 }

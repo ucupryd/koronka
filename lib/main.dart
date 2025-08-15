@@ -1,7 +1,8 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'pages/dashboard_page.dart';
 import 'pages/configuration_page.dart';
 import 'pages/things_page.dart';
@@ -9,7 +10,7 @@ import 'pages/maintenance_page.dart';
 import 'pages/login_page.dart';
 import 'services/auth_service.dart';
 
-// ... (Class AppColors Anda tetap sama)
+// Class AppColors Anda
 class AppColors {
   static const Color primary = Color(0xFF0A546D);
   static const Color primaryLight = Color(0xFF1B7F9E);
@@ -47,7 +48,9 @@ void main() {
     systemNavigationBarColor: Colors.white,
     systemNavigationBarIconBrightness: Brightness.dark,
   ));
-  runApp(const CoolingApp());
+  runApp(const ProviderScope(
+    child: CoolingApp(),
+  ));
 }
 
 class CoolingApp extends StatelessWidget {
@@ -119,13 +122,11 @@ class CoolingApp extends StatelessWidget {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
       ),
-      // PERUBAHAN: Aplikasi sekarang selalu dimulai dari LoginPage
       home: const LoginPage(),
     );
   }
 }
 
-// Widget AuthGate tetap ada untuk digunakan di masa depan, tapi tidak dipanggil saat start-up
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -176,11 +177,15 @@ class _MainPageState extends State<MainPage> {
   final AuthService _authService = AuthService();
   late PageController _pageController;
 
-  static const List<Widget> _pages = <Widget>[
-    DashboardPage(),
-    ConfigurationPage(),
-    ThingsPage(),
-    MaintenancePage(),
+  // =======================================================================
+  // !!! PERBAIKAN UTAMA DI SINI !!!
+  // `const` dihapus dari list _pages agar state Riverpod bisa diperbarui.
+  // =======================================================================
+  static final List<Widget> _pages = <Widget>[
+    DashboardPage(), // <-- const DIHAPUS
+    ConfigurationPage(), // <-- const DIHAPUS
+    const ThingsPage(),
+    const MaintenancePage(),
   ];
 
   @override
@@ -210,7 +215,6 @@ class _MainPageState extends State<MainPage> {
     await _authService.logout();
     if (mounted) {
       Navigator.of(context).pop(); // Tutup drawer
-      // Kembali ke LoginPage
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const LoginPage()),
       );

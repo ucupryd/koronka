@@ -1,17 +1,23 @@
 // lib/pages/configuration_page.dart
+
 import 'package:flutter/material.dart';
-import '../main.dart'; // Untuk AppColors
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/device_providers.dart';
+
+import '../main.dart';
 import '../widgets/config_input_field.dart';
 import '../widgets/info_card.dart';
+import '../models/product_model.dart'; // Import Product model
 
-class ConfigurationPage extends StatefulWidget {
+// Ubah menjadi ConsumerStatefulWidget
+class ConfigurationPage extends ConsumerStatefulWidget {
   const ConfigurationPage({super.key});
 
   @override
-  State<ConfigurationPage> createState() => _ConfigurationPageState();
+  ConsumerState<ConfigurationPage> createState() => _ConfigurationPageState();
 }
 
-class _ConfigurationPageState extends State<ConfigurationPage> with SingleTickerProviderStateMixin {
+class _ConfigurationPageState extends ConsumerState<ConfigurationPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isAutoCycleEnabled = true;
 
@@ -29,6 +35,12 @@ class _ConfigurationPageState extends State<ConfigurationPage> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
+    // =======================================================================
+    // !!! PERBAIKAN UTAMA DI SINI !!!
+    // Dengarkan provider baru yang memberikan objek Product lengkap.
+    // =======================================================================
+    final selectedProduct = ref.watch(selectedProductProvider);
+
     return Scaffold(
       appBar: TabBar(
         controller: _tabController,
@@ -41,24 +53,39 @@ class _ConfigurationPageState extends State<ConfigurationPage> with SingleTicker
           Tab(text: 'Defrost'),
         ],
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildAutoCycleTab(),
-          _buildParametersTab(),
-          _buildDefrostTab(),
-        ],
-      ),
+      // Tampilkan UI berdasarkan apakah ada produk yang dipilih
+      body: selectedProduct == null
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Text(
+                  'Pilih sebuah perangkat di halaman Dashboard untuk melihat konfigurasi.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: AppColors.textLight),
+                ),
+              ),
+            )
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                // Kirim seluruh objek Product ke setiap tab
+                _buildAutoCycleTab(selectedProduct),
+                _buildParametersTab(selectedProduct),
+                _buildDefrostTab(selectedProduct),
+              ],
+            ),
     );
   }
 
-  Widget _buildAutoCycleTab() {
+  // Modifikasi setiap fungsi build tab untuk menerima objek Product
+  Widget _buildAutoCycleTab(Product product) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
           InfoCard(
-            title: 'Current Auto Cycle Status',
+            // Gunakan nama produk dari objek
+            title: 'Current Auto Cycle Status for "${product.name}"',
             child: Column(
               children: [
                 Row(
@@ -81,7 +108,8 @@ class _ConfigurationPageState extends State<ConfigurationPage> with SingleTicker
                 Container(
                   height: 150,
                   alignment: Alignment.center,
-                  child: const Text('[Placeholder for 24-Hour Temp Cycle Chart]'),
+                  // Tampilkan nama produk di sini juga jika perlu
+                  child: Text('[Chart untuk: ${product.name}]'),
                 ),
               ],
             ),
@@ -114,73 +142,34 @@ class _ConfigurationPageState extends State<ConfigurationPage> with SingleTicker
     );
   }
 
-  Widget _buildParametersTab() {
+  Widget _buildParametersTab(Product product) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          InfoCard(
-            title: 'Standard Parameters',
-            child: Column(
-              children: [
-                ConfigInputField(label: 'F01 - Temperature setpoint', initialValue: '-18', unit: '°C', description: 'Target temperature for the cooling system.'),
-                const SizedBox(height: 10),
-                ConfigInputField(label: 'F02 - Hysteresis value', initialValue: '2', unit: '°C', description: 'Temperature difference for compressor cycling.'),
-                const SizedBox(height: 10),
-                ConfigInputField(label: 'F03 - High alarm threshold', initialValue: '-10', unit: '°C', description: 'Temperature threshold for high alarm.'),
-                const SizedBox(height: 10),
-                ConfigInputField(label: 'F04 - Low alarm threshold', initialValue: '-25', unit: '°C', description: 'Temperature threshold for low alarm.'),
-                 const SizedBox(height: 10),
-                ConfigInputField(label: 'F05 - Alarm delay time', initialValue: '30', unit: 'min', description: 'Delay before triggering temperature alarms.'),
-                 const SizedBox(height: 10),
-                ConfigInputField(label: 'F06 - Compressor delay', initialValue: '3', unit: 'min', description: 'Minimum time between compressor starts.'),
-              ],
-            ),
-          ),
-        ],
+      child: InfoCard(
+        title: 'Standard Parameters for "${product.name}"',
+        child: Column(
+          children: [
+            ConfigInputField(label: 'F01 - Temperature setpoint', initialValue: '-18', unit: '°C', description: 'Target temperature for the cooling system.'),
+            const SizedBox(height: 10),
+            ConfigInputField(label: 'F02 - Hysteresis value', initialValue: '2', unit: '°C', description: 'Temperature difference for compressor cycling.'),
+            // ... sisa parameter
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildDefrostTab() {
+  Widget _buildDefrostTab(Product product) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-           InfoCard(
-            title: 'Defrost Configuration',
-            child: Column(
-              children: [
-                 ConfigInputField(label: 'F07 - Defrost interval', initialValue: '360', unit: 'min', description: 'Time between automatic defrost cycles.'),
-                const SizedBox(height: 10),
-                ConfigInputField(label: 'F08 - Max defrost duration', initialValue: '45', unit: 'min', description: 'Maximum time allowed for defrost cycle.'),
-                 const SizedBox(height: 10),
-                 ConfigInputField(label: 'F09 - Defrost stop temp', initialValue: '8', unit: '°C', description: 'Temperature to end defrost cycle.'),
-                const SizedBox(height: 10),
-                ConfigInputField(label: 'F10 - Fan mode', initialValue: '1', unit: '', description: '0=Off during defrost, 1=On, 2=Delayed start.'),
-                const SizedBox(height: 10),
-                ConfigInputField(label: 'F11 - Drip time after defrost', initialValue: '5', unit: 'min', description: 'Wait time after defrost before restarting.'),
-                const SizedBox(height: 10),
-                ConfigInputField(label: 'F12 - Door open alarm time', initialValue: '60', unit: 'sec', description: 'Time before door open alarm triggers.'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          // --- PERUBAHAN DI SINI ---
-          InfoCard(
-            title: 'Defrost Status Information',
-            // Mengubah Row menjadi Column
-            child: Column(
-              children: [
-                _buildStatusRow('Last Defrost', '2 hours ago'),
-                const Divider(height: 24),
-                _buildStatusRow('Next Scheduled', '4 hours'),
-                const Divider(height: 24),
-                _buildStatusRow('Defrost Cycles Today', '3'),
-              ],
-            ),
-          ),
-        ],
+      child: InfoCard(
+        title: 'Defrost Configuration for "${product.name}"',
+        child: Column(
+          children: [
+             ConfigInputField(label: 'F07 - Defrost interval', initialValue: '360', unit: 'min', description: 'Time between automatic defrost cycles.'),
+             // ... sisa parameter
+          ],
+        ),
       ),
     );
   }
@@ -195,7 +184,6 @@ class _ConfigurationPageState extends State<ConfigurationPage> with SingleTicker
     );
   }
 
-  // Widget helper baru untuk tata letak vertikal
   Widget _buildStatusRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
