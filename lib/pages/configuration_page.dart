@@ -1,15 +1,12 @@
 // lib/pages/configuration_page.dart
-
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/device_providers.dart';
-
-import '../main.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // Import Riverpod
+import '../main.dart'; // Untuk AppColors
 import '../widgets/config_input_field.dart';
 import '../widgets/info_card.dart';
-import '../models/product_model.dart'; // Import Product model
+import '../providers/device_providers.dart'; // Import provider yang sudah kita buat
 
-// Ubah menjadi ConsumerStatefulWidget
+// PERUBAHAN: Diubah menjadi ConsumerStatefulWidget untuk bisa membaca provider
 class ConfigurationPage extends ConsumerStatefulWidget {
   const ConfigurationPage({super.key});
 
@@ -35,57 +32,73 @@ class _ConfigurationPageState extends ConsumerState<ConfigurationPage> with Sing
 
   @override
   Widget build(BuildContext context) {
-    // =======================================================================
-    // !!! PERBAIKAN UTAMA DI SINI !!!
-    // Dengarkan provider baru yang memberikan objek Product lengkap.
-    // =======================================================================
+    // PERUBAHAN: Membaca state dari provider untuk mendapatkan perangkat yang dipilih
     final selectedProduct = ref.watch(selectedProductProvider);
 
-    return Scaffold(
-      appBar: TabBar(
-        controller: _tabController,
-        labelColor: AppColors.primary,
-        unselectedLabelColor: AppColors.textLight,
-        indicatorColor: AppColors.primary,
-        tabs: const [
-          Tab(text: 'Auto Cycle'),
-          Tab(text: 'Parameters'),
-          Tab(text: 'Defrost'),
-        ],
-      ),
-      // Tampilkan UI berdasarkan apakah ada produk yang dipilih
-      body: selectedProduct == null
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Text(
-                  'Pilih sebuah perangkat di halaman Dashboard untuk melihat konfigurasi.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: AppColors.textLight),
-                ),
-              ),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                // Kirim seluruh objek Product ke setiap tab
-                _buildAutoCycleTab(selectedProduct),
-                _buildParametersTab(selectedProduct),
-                _buildDefrostTab(selectedProduct),
-              ],
+    // Jika tidak ada perangkat yang dipilih (misalnya saat aplikasi baru dibuka)
+    if (selectedProduct == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            'Pilih perangkat di halaman Dashboard untuk melihat konfigurasi.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, color: AppColors.textLight),
+          ),
+        ),
+      );
+    }
+
+    // Jika ada perangkat yang dipilih, tampilkan UI lengkapnya
+    return Column(
+      children: [
+        // PERUBAHAN: Menampilkan nama perangkat yang dipilih di atas
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            'Konfigurasi untuk: ${selectedProduct.name}',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
             ),
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ),
+        TabBar(
+          controller: _tabController,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: AppColors.textLight,
+          indicatorColor: AppColors.primary,
+          tabs: const [
+            Tab(text: 'Auto Cycle'),
+            Tab(text: 'Parameters'),
+            Tab(text: 'Defrost'),
+          ],
+        ),
+        // Expanded agar TabBarView mengisi sisa ruang
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildAutoCycleTab(),
+              _buildParametersTab(),
+              _buildDefrostTab(),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  // Modifikasi setiap fungsi build tab untuk menerima objek Product
-  Widget _buildAutoCycleTab(Product product) {
+  Widget _buildAutoCycleTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
           InfoCard(
-            // Gunakan nama produk dari objek
-            title: 'Current Auto Cycle Status for "${product.name}"',
+            title: 'Current Auto Cycle Status',
             child: Column(
               children: [
                 Row(
@@ -108,8 +121,7 @@ class _ConfigurationPageState extends ConsumerState<ConfigurationPage> with Sing
                 Container(
                   height: 150,
                   alignment: Alignment.center,
-                  // Tampilkan nama produk di sini juga jika perlu
-                  child: Text('[Chart untuk: ${product.name}]'),
+                  child: const Text('[Placeholder for 24-Hour Temp Cycle Chart]'),
                 ),
               ],
             ),
@@ -142,34 +154,71 @@ class _ConfigurationPageState extends ConsumerState<ConfigurationPage> with Sing
     );
   }
 
-  Widget _buildParametersTab(Product product) {
+  Widget _buildParametersTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
-      child: InfoCard(
-        title: 'Standard Parameters for "${product.name}"',
-        child: Column(
-          children: [
-            ConfigInputField(label: 'F01 - Temperature setpoint', initialValue: '-18', unit: '°C', description: 'Target temperature for the cooling system.'),
-            const SizedBox(height: 10),
-            ConfigInputField(label: 'F02 - Hysteresis value', initialValue: '2', unit: '°C', description: 'Temperature difference for compressor cycling.'),
-            // ... sisa parameter
-          ],
-        ),
+      child: Column(
+        children: [
+          InfoCard(
+            title: 'Standard Parameters',
+            child: Column(
+              children: [
+                ConfigInputField(label: 'F01 - Temperature setpoint', initialValue: '-18', unit: '°C', description: 'Target temperature for the cooling system.'),
+                const SizedBox(height: 10),
+                ConfigInputField(label: 'F02 - Hysteresis value', initialValue: '2', unit: '°C', description: 'Temperature difference for compressor cycling.'),
+                const SizedBox(height: 10),
+                ConfigInputField(label: 'F03 - High alarm threshold', initialValue: '-10', unit: '°C', description: 'Temperature threshold for high alarm.'),
+                const SizedBox(height: 10),
+                ConfigInputField(label: 'F04 - Low alarm threshold', initialValue: '-25', unit: '°C', description: 'Temperature threshold for low alarm.'),
+                 const SizedBox(height: 10),
+                ConfigInputField(label: 'F05 - Alarm delay time', initialValue: '30', unit: 'min', description: 'Delay before triggering temperature alarms.'),
+                 const SizedBox(height: 10),
+                ConfigInputField(label: 'F06 - Compressor delay', initialValue: '3', unit: 'min', description: 'Minimum time between compressor starts.'),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildDefrostTab(Product product) {
+  Widget _buildDefrostTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
-      child: InfoCard(
-        title: 'Defrost Configuration for "${product.name}"',
-        child: Column(
-          children: [
-             ConfigInputField(label: 'F07 - Defrost interval', initialValue: '360', unit: 'min', description: 'Time between automatic defrost cycles.'),
-             // ... sisa parameter
-          ],
-        ),
+      child: Column(
+        children: [
+           InfoCard(
+            title: 'Defrost Configuration',
+            child: Column(
+              children: [
+                 ConfigInputField(label: 'F07 - Defrost interval', initialValue: '360', unit: 'min', description: 'Time between automatic defrost cycles.'),
+                const SizedBox(height: 10),
+                ConfigInputField(label: 'F08 - Max defrost duration', initialValue: '45', unit: 'min', description: 'Maximum time allowed for defrost cycle.'),
+                 const SizedBox(height: 10),
+                 ConfigInputField(label: 'F09 - Defrost stop temp', initialValue: '8', unit: '°C', description: 'Temperature to end defrost cycle.'),
+                const SizedBox(height: 10),
+                ConfigInputField(label: 'F10 - Fan mode', initialValue: '1', unit: '', description: '0=Off during defrost, 1=On, 2=Delayed start.'),
+                const SizedBox(height: 10),
+                ConfigInputField(label: 'F11 - Drip time after defrost', initialValue: '5', unit: 'min', description: 'Wait time after defrost before restarting.'),
+                const SizedBox(height: 10),
+                ConfigInputField(label: 'F12 - Door open alarm time', initialValue: '60', unit: 'sec', description: 'Time before door open alarm triggers.'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          InfoCard(
+            title: 'Defrost Status Information',
+            child: Column(
+              children: [
+                _buildStatusRow('Last Defrost', '2 hours ago'),
+                const Divider(height: 24),
+                _buildStatusRow('Next Scheduled', '4 hours'),
+                const Divider(height: 24),
+                _buildStatusRow('Defrost Cycles Today', '3'),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -185,15 +234,18 @@ class _ConfigurationPageState extends ConsumerState<ConfigurationPage> with Sing
   }
 
   Widget _buildStatusRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: const TextStyle(color: AppColors.textMedium, fontSize: 14)),
-        Text(
-          value,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textDark),
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: AppColors.textMedium, fontSize: 14)),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textDark),
+          ),
+        ],
+      ),
     );
   }
 }

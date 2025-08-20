@@ -2,10 +2,10 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../widgets/info_card.dart';
-import '../models/product_model.dart'; // Import model
-import '../services/auth_service.dart'; // Import service API
+import '../models/product_model.dart';
+import '../services/auth_service.dart';
+import 'qr_scanner_page.dart'; // Import halaman scanner
 
-// Diubah menjadi StatefulWidget
 class ThingsPage extends StatefulWidget {
   const ThingsPage({super.key});
 
@@ -16,6 +16,7 @@ class ThingsPage extends StatefulWidget {
 class _ThingsPageState extends State<ThingsPage> {
   final AuthService _authService = AuthService();
   late Future<List<Product>> _productsFuture;
+  final TextEditingController _deviceIdController = TextEditingController();
 
   @override
   void initState() {
@@ -23,26 +24,43 @@ class _ThingsPageState extends State<ThingsPage> {
     _loadProducts();
   }
 
-  // Fungsi untuk memuat atau memuat ulang data produk
+  @override
+  void dispose() {
+    _deviceIdController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadProducts() async {
     setState(() {
       _productsFuture = _authService.getProducts();
     });
   }
 
+  // Fungsi untuk membuka scanner dari halaman ini
+  void _openScannerForAdd() async {
+    // Navigasi ke halaman scanner dan tunggu hasilnya
+    final result = await Navigator.of(context).push<String>(MaterialPageRoute(
+      builder: (context) => const QRScannerPage(mode: QRScannerMode.addDevice),
+    ));
+
+    // Jika ada hasil (pengguna tidak menekan tombol back), isi text field
+    if (result != null && mounted) {
+      setState(() {
+        _deviceIdController.text = result;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // PERUBAHAN: RefreshIndicator sekarang menjadi widget utama
     return RefreshIndicator(
       onRefresh: _loadProducts,
       child: FutureBuilder<List<Product>>(
         future: _productsFuture,
         builder: (context, snapshot) {
-          // Saat sedang loading
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          // Jika ada error
           if (snapshot.hasError) {
             return Center(
               child: Padding(
@@ -64,13 +82,10 @@ class _ThingsPageState extends State<ThingsPage> {
           
           final products = snapshot.data ?? [];
 
-          // PERUBAHAN: Menggunakan ListView.builder untuk seluruh halaman
           return ListView.builder(
             padding: const EdgeInsets.all(16.0),
-            // Jumlah item adalah jumlah produk + 1 untuk kartu "Add Device"
             itemCount: products.length + 1,
             itemBuilder: (context, index) {
-              // Item pertama adalah kartu "Add Device"
               if (index == 0) {
                 return Column(
                   children: [
@@ -78,18 +93,26 @@ class _ThingsPageState extends State<ThingsPage> {
                       title: 'Add New Device',
                       child: Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: TextField(
-                              decoration: InputDecoration(
-                                labelText: 'Enter Device ID (e.g., FRZ003)',
+                              controller: _deviceIdController,
+                              decoration: const InputDecoration(
+                                labelText: 'Enter or Scan Device ID',
                                 border: OutlineInputBorder(),
                                 contentPadding: EdgeInsets.symmetric(horizontal: 12),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          // Tombol scan baru
+                          IconButton(
+                            icon: const Icon(Icons.qr_code_scanner, color: AppColors.primary, size: 28),
+                            onPressed: _openScannerForAdd,
+                            tooltip: 'Scan Device ID',
+                          ),
                           ElevatedButton(
-                            onPressed: () {}, // TODO: Implement register device
+                            onPressed: () {
+                              // TODO: Implementasi logika register device dengan _deviceIdController.text
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -100,7 +123,6 @@ class _ThingsPageState extends State<ThingsPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // Judul untuk daftar perangkat
                     if (products.isNotEmpty)
                       const Align(
                         alignment: Alignment.centerLeft,
@@ -116,7 +138,6 @@ class _ThingsPageState extends State<ThingsPage> {
                 );
               }
 
-              // Item selanjutnya adalah data perangkat
               final product = products[index - 1];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
@@ -132,11 +153,10 @@ class _ThingsPageState extends State<ThingsPage> {
     );
   }
 
-  // Widget untuk menampilkan detail satu item perangkat
   Widget _buildDeviceTile(BuildContext context, Product product) {
     final bool isOnline = product.status.toLowerCase() == 'online';
     return Padding(
-      padding: const EdgeInsets.only(top: 8.0), // Padding di dalam kartu
+      padding: const EdgeInsets.only(top: 8.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [

@@ -9,7 +9,7 @@ class AuthService {
   // !!! INI BAGIAN PALING PENTING !!!
   // Ganti dengan alamat IP atau domain SERVER BACKEND Anda yang benar.
   // Pastikan HP dan server berada di jaringan yang sama.
-  static const String _baseUrl = 'http://192.168.100.30:8001'; // <-- GANTI INI DENGAN IP SERVER ANDA
+  static const String _baseUrl = 'https://ecoolapi.reinutechiot.com'; // <-- GANTI INI DENGAN IP SERVER ANDA
 
   final _storage = const FlutterSecureStorage();
 

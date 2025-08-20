@@ -1,13 +1,14 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // Import Riverpod
+import 'package:intl/intl.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/configuration_page.dart';
 import 'pages/things_page.dart';
 import 'pages/maintenance_page.dart';
 import 'pages/login_page.dart';
+import 'pages/qr_scanner_page.dart';
 import 'services/auth_service.dart';
 
 // Class AppColors Anda
@@ -48,6 +49,7 @@ void main() {
     systemNavigationBarColor: Colors.white,
     systemNavigationBarIconBrightness: Brightness.dark,
   ));
+  // PERUBAHAN: Mengembalikan ProviderScope untuk mengatasi error "Bad state"
   runApp(const ProviderScope(
     child: CoolingApp(),
   ));
@@ -68,7 +70,6 @@ class CoolingApp extends StatelessWidget {
           seedColor: AppColors.primary,
           brightness: Brightness.light,
           surface: AppColors.surface,
-          background: AppColors.background,
         ),
         scaffoldBackgroundColor: AppColors.background,
         cardTheme: CardThemeData(
@@ -177,15 +178,11 @@ class _MainPageState extends State<MainPage> {
   final AuthService _authService = AuthService();
   late PageController _pageController;
 
-  // =======================================================================
-  // !!! PERBAIKAN UTAMA DI SINI !!!
-  // `const` dihapus dari list _pages agar state Riverpod bisa diperbarui.
-  // =======================================================================
-  static final List<Widget> _pages = <Widget>[
-    DashboardPage(), // <-- const DIHAPUS
-    ConfigurationPage(), // <-- const DIHAPUS
-    const ThingsPage(),
-    const MaintenancePage(),
+  static const List<Widget> _pages = <Widget>[
+    DashboardPage(),
+    ConfigurationPage(),
+    ThingsPage(),
+    MaintenancePage(),
   ];
 
   @override
@@ -219,6 +216,12 @@ class _MainPageState extends State<MainPage> {
         MaterialPageRoute(builder: (context) => const LoginPage()),
       );
     }
+  }
+
+  void _openScanner() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => const QRScannerPage(mode: QRScannerMode.getInfo),
+    ));
   }
 
   @override
@@ -336,30 +339,27 @@ class _MainPageState extends State<MainPage> {
         },
         children: _pages,
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _openScanner,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 4.0,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.qr_code_scanner),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8.0,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildNavItem(0, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Dashboard'),
+            _buildNavItem(1, Icons.tune_rounded, Icons.tune_outlined, 'Config'),
+            const SizedBox(width: 40), // Ruang untuk FAB
+            _buildNavItem(2, Icons.devices_other_rounded, Icons.devices_other_outlined, 'Things'),
+            _buildNavItem(3, Icons.build_rounded, Icons.build_outlined, 'Maintenance'),
           ],
-        ),
-        child: SafeArea(
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, Icons.dashboard_rounded, Icons.dashboard_outlined, 'Dashboard'),
-                _buildNavItem(1, Icons.tune_rounded, Icons.tune_outlined, 'Config'),
-                _buildNavItem(2, Icons.devices_other_rounded, Icons.devices_other_outlined, 'Things'),
-                _buildNavItem(3, Icons.build_rounded, Icons.build_outlined, 'Maintenance'),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -368,37 +368,36 @@ class _MainPageState extends State<MainPage> {
   Widget _buildNavItem(int index, IconData activeIcon, IconData inactiveIcon, String label) {
     final isSelected = _selectedIndex == index;
     
-    return GestureDetector(
-      onTap: () => _onItemTapped(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
+    // PERUBAHAN: Menggunakan Expanded agar setiap item memiliki lebar yang sama
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _onItemTapped(index),
+        // Menghapus padding agar lebih fleksibel
+        child: Container(
+          color: Colors.transparent, // Membuat area tap lebih besar
+          height: 60, // Memberikan tinggi yang konsisten
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
                 isSelected ? activeIcon : inactiveIcon,
-                key: ValueKey(isSelected),
                 color: isSelected ? AppColors.primary : AppColors.textLight,
                 size: 24,
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? AppColors.primary : AppColors.textLight,
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? AppColors.primary : AppColors.textLight,
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+                // Mencegah teks turun baris
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
